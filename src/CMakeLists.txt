@@ -1,35 +1,14 @@
-cmake_minimum_required (VERSION 2.8)
-find_package(CUDA REQUIRED)
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  if(CUDA_VERSION_STRING VERSION_EQUAL 11.0 OR CUDA_VERSION_STRING VERSION_GREATER 11.0)
-	  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 10.0
-	  OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 10.0)
-	  message(FATAL_ERROR "CUDA 11.0 does not support gcc10+. Please choose an older gcc version like:\n
-	  cmake -DCMAKE_C_COMPILER=`which gcc-9` -DCMAKE_CXX_COMPILER=`which g++-9` ..")
-    endif()
-  elseif(CUDA_VERSION_STRING VERSION_EQUAL 7.5 OR CUDA_VERSION_STRING VERSION_GREATER 7.5)
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0
-        OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 5.0)
-      message(FATAL_ERROR "CUDA 7.5 does not support gcc5+. Please choose an older gcc version like:\n
-cmake -DCMAKE_C_COMPILER=`which gcc-4` -DCMAKE_CXX_COMPILER=`which g++-4` ..")
-    endif()
-  endif()
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.0)
-    message(FATAL_ERROR "gcc4.0 or newer required.")
-  endif()
-endif()
+set(TARGET_LIST tlb_benchmark tlb_sharing)
+foreach(TARGET ${TARGET_LIST})
+    add_executable(hip_${TARGET}
+                    ${TARGET}.cpp)
+    set_target_properties(hip_${TARGET} PROPERTIES
+                    OUTPUT_NAME ${TARGET})
+    target_include_directories(hip_${TARGET} PUBLIC
+                    ${CMAKE_SOURCE_DIR}/src)
+    # Not clear this is needed..
+    #target_link_libraries(hip_${TARGET} MIOpen)
+endforeach()
 
-option(CUDA_VERBOSE_PTXAS
-  "On to enable verbose output from the PTXAS assembler."
-  OFF
-  )
-if (CUDA_VERBOSE_PTXAS)
-  set(VERBOSE_PTXAS --ptxas-options=-v)
-endif (CUDA_VERBOSE_PTXAS)
-
-set(M_CUDA_ARCH "30" CACHE STRING "Target Compute Capability, e.g. '30' (Kepler) or '60' (Pascal).")
-set(GENCODE -arch=sm_${M_CUDA_ARCH})
-
-cuda_add_executable(tlb-bench tlb_benchmark.cu OPTIONS ${GENCODE} ${VERBOSE_PTXAS})
-cuda_add_executable(tlb-sharing tlb_sharing.cu OPTIONS ${GENCODE} ${VERBOSE_PTXAS})
+list(TRANSFORM TARGET_LIST PREPEND "hip_")

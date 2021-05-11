@@ -62,7 +62,13 @@ void tlb_latency_with_disruptor(unsigned int * hashtable,
     HIP_DYNAMIC_SHARED( unsigned, duration) // shared memory should be large enough to fill one SM
 
     unsigned smid;
-    asm("mov.u32 %0, %smid;" : "=r"(smid) );
+   
+    //Use CUDA syntax or HIP syntax 
+    #if defined(__CUDA_ARCH__)
+        asm("mov.u32 %0, %%smid;" : "=r"(smid) );
+    #else
+	smid = __smid();
+    #endif
 
     if(!(DISRUPT || smid==smid0)) // only take 1st SM in non-disrupting mode
         return;

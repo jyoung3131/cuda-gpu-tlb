@@ -273,7 +273,7 @@ int main(int argc, char **argv)
 
     // cleanup
     CHECK_CUDA(hipFree(data));
-    delete hostData;
+    delete[] hostData;
 
     // ------------------------------------ CSV output --------------------------
 
