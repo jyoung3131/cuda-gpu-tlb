@@ -121,17 +121,17 @@ int main(int argc, char **argv)
     // --------------- init CUDA ---------
     int devCount;
     int SMcount =  0;
-    CHECK_CUDA(hipGetDeviceCount(&devCount));
+    CHECK_HIP(hipGetDeviceCount(&devCount));
     
     // check Dev Count
     if (devNo >= devCount){
         cerr << "Can not choose Dev " << devNo << ", only " << devCount << " GPUs " << endl;
         exit(0);
     }
-    CHECK_CUDA(hipSetDevice(devNo));
+    CHECK_HIP(hipSetDevice(devNo));
         
     hipDeviceProp_t props;
-    CHECK_CUDA(hipGetDeviceProperties(&props, devNo));
+    CHECK_HIP(hipGetDeviceProperties(&props, devNo));
     cout << "#" << props.name << ": cuda " << props.major << "." << props.minor << endl;
     cout << ", reduction mode: " << (metric == METRIC_MIN ? "min" : "avg") << endl;
     SMcount = props.multiProcessorCount;
@@ -141,13 +141,13 @@ int main(int argc, char **argv)
     size_t hashtable_size_MB = ((iterations+1) * stride_KB * 2) / 1024;
     
     
-    CHECK_CUDA(hipDeviceReset());
+    CHECK_HIP(hipDeviceReset());
       
     unsigned int * hashtable;
     unsigned* hduration = new unsigned [iterations];
     size_t N = hashtable_size_MB*1048576llu/sizeof(unsigned int);
      
-    CHECK_CUDA(hipMalloc(&hashtable, hashtable_size_MB*1048576llu+(iterations+2llu)*sizeof(unsigned int)));
+    CHECK_HIP(hipMalloc(&hashtable, hashtable_size_MB*1048576llu+(iterations+2llu)*sizeof(unsigned int)));
       
     // init data
     unsigned int* hdata = new unsigned int[N+1];
@@ -156,7 +156,7 @@ int main(int argc, char **argv)
         hdata[t] = ( t+stride_count ) % N;
     }
     hdata[N] = 0;
-    CHECK_CUDA(hipMemcpy(hashtable, hdata, (N+1)*sizeof(unsigned), hipMemcpyHostToDevice));
+    CHECK_HIP(hipMemcpy(hashtable, hdata, (N+1)*sizeof(unsigned), hipMemcpyHostToDevice));
     delete[] hdata;
 
     // alloc output space
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
     for (int smid0 = 0; smid0 < SMcount; smid0++){
         for  (int smxxx = 0; smxxx < SMcount; smxxx++) {
 
-            CHECK_CUDA(hipDeviceSynchronize());
+            CHECK_HIP(hipDeviceSynchronize());
                 
             // fill TLB
             hipLaunchKernelGGL(HIP_KERNEL_NAME(tlb_latency_with_disruptor<false, false>), dim3(2*SMcount), dim3(1), iterations*sizeof(unsigned), 0, hashtable, N,  iterations, stride_count, 0, smid0,smxxx);
@@ -185,11 +185,11 @@ int main(int argc, char **argv)
              
              
             CHECK_LAST( "Kernel failed." );
-            CHECK_CUDA(hipDeviceSynchronize());
+            CHECK_HIP(hipDeviceSynchronize());
     
             
             // get needed cycles
-            CHECK_CUDA(hipMemcpy(hduration, hashtable+N+2, iterations*sizeof(unsigned), hipMemcpyDeviceToHost));
+            CHECK_HIP(hipMemcpy(hduration, hashtable+N+2, iterations*sizeof(unsigned), hipMemcpyDeviceToHost));
 
             if(metric==METRIC_AVG) {
                 double avgc=0;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
         }
     }
     
-    CHECK_CUDA(hipFree(hashtable));
+    CHECK_HIP(hipFree(hashtable));
     delete[] hduration;
     
  
@@ -266,6 +266,6 @@ int main(int argc, char **argv)
     }
 
  
-    CHECK_CUDA(hipDeviceReset());
+    CHECK_HIP(hipDeviceReset());
     return 0;
 }

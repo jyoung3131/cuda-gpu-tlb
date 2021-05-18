@@ -78,7 +78,7 @@ static __global__ void TLBtester(unsigned int * data, unsigned int iterations)
     // write output here, that we do not access another page
     data[(pos+1)] = (unsigned int)((unsigned int)sum / (iterations));
 
-    // if I don't write that, the compiler will optimize all computation away
+    // Assign the final sum so the compiler won't optimize all the computation away
     if (pos == 0) data[(pos+2)] = posSum;
 }
 
@@ -185,14 +185,14 @@ int main(int argc, char **argv)
     ofstream output (fileName);
 
 
-    // ------------- setup Cuda and Input data and result data ------------
+    // ------------- setup HIP and input data and result data ------------
 
     size_t sizeMB = dataToMB+1;
     size_t sizeBytes = sizeMB*1024*1024;
     size_t sizeInts = sizeBytes / sizeof(int);
 
     int devCount;
-    CHECK_CUDA(hipGetDeviceCount(&devCount));
+    CHECK_HIP(hipGetDeviceCount(&devCount));
 
     // check Dev Count
     if (devNo >= devCount){
@@ -201,18 +201,18 @@ int main(int argc, char **argv)
     }
 
     hipDeviceProp_t props;
-    CHECK_CUDA(hipGetDeviceProperties(&props, devNo));
+    CHECK_HIP(hipGetDeviceProperties(&props, devNo));
     cout << "#" << props.name << ": cuda " << props.major << "." << props.minor;
     cout << ", reduction mode: " << (metric == METRIC_MIN ? "min" : "avg") << endl;
     output << "#" << props.name << ": cuda " << props.major << "." << props.minor;
     output << ", reduction mode: " << (metric == METRIC_MIN ? "min" : "avg") << endl;
-    CHECK_CUDA(hipSetDevice(devNo));
+    CHECK_HIP(hipSetDevice(devNo));
 
     unsigned int * hostData = new unsigned int[sizeInts];
 
     unsigned int * data;
-    CHECK_CUDA(hipMalloc(&data, sizeBytes));
-    CHECK_CUDA(hipMemset(data, 0, sizeBytes));
+    CHECK_HIP(hipMalloc(&data, sizeBytes));
+    CHECK_HIP(hipMemset(data, 0, sizeBytes));
 
     // alloc space for results.
     const unsigned int init = metric == METRIC_AVG ? 0 : std::numeric_limits<unsigned int>::max();
@@ -236,12 +236,12 @@ int main(int argc, char **argv)
             initSteps(hostData, sizeInts, steps);
 
             // copy data
-            CHECK_CUDA(hipMemcpy(data, hostData, sizeBytes, hipMemcpyHostToDevice));
-            CHECK_CUDA(hipDeviceSynchronize());
+            CHECK_HIP(hipMemcpy(data, hostData, sizeBytes, hipMemcpyHostToDevice));
+            CHECK_HIP(hipDeviceSynchronize());
 
             // run it once to initialize all pages (over full data size)
             hipLaunchKernelGGL(TLBtester, dim3(1), dim3(1), 0, 0, data,  (unsigned int) ((sizeMB*1024 / steps)) );
-            CHECK_CUDA(hipDeviceSynchronize());
+            CHECK_HIP(hipDeviceSynchronize());
 
             unsigned int indexY = 0;
             // run test for all steps of this stride
@@ -249,16 +249,16 @@ int main(int argc, char **argv)
                 if (i == 0) continue;
                 // warmup and initialize TLB
                 hipLaunchKernelGGL(TLBtester, dim3(1), dim3(1), 0, 0, data, i);
-                CHECK_CUDA(hipDeviceSynchronize());
+                CHECK_HIP(hipDeviceSynchronize());
 
                 // real test
                 hipLaunchKernelGGL(TLBtester, dim3(1), dim3(1), 0, 0, data, i);
-                CHECK_CUDA(hipDeviceSynchronize());
+                CHECK_HIP(hipDeviceSynchronize());
                 unsigned int myResult = 0;
 
                 // find our result position:
                 unsigned int pos =  (steps/sizeof(int) * 1024 * (i-1)) + 1;
-                CHECK_CUDA(hipMemcpy(&myResult, data+pos, sizeof(unsigned int), hipMemcpyDeviceToHost));
+                CHECK_HIP(hipMemcpy(&myResult, data+pos, sizeof(unsigned int), hipMemcpyDeviceToHost));
                 // write result at the right csv position
                 if(metric == METRIC_AVG)
                     results[ indexY ][ indexX ] += myResult;
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
     }
 
     // cleanup
-    CHECK_CUDA(hipFree(data));
+    CHECK_HIP(hipFree(data));
     delete[] hostData;
 
     // ------------------------------------ CSV output --------------------------
