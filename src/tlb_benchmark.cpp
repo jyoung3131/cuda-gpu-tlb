@@ -62,8 +62,10 @@ static __global__ void TLBtester(unsigned int * data, unsigned int iterations)
 
 
     for (unsigned int i = 0; i < iterations; i++){
+	__threadfence();
         start = clock64();
         pos = data[pos];
+	__threadfence();
         // this is done to add a data dependency, for better clock measurments
         posSum += pos;
         stop = clock64();
@@ -109,13 +111,12 @@ unsigned int getNextPowerOfTwo (unsigned int x)
 
 int main(int argc, char **argv)
 {
-    unsigned int iterations = 5;
     unsigned int devNo = 0;
 
     // ------------- handle inputs ------------
 
-    if (argc < 5) {
-        cerr << "usage: " << argv[0] << " data_from_MB data_to_MB stride_from_KB stride_to_KB Device_No=0 min_instead_avg=0" << endl;
+    if (argc < 6) {
+        cerr << "usage: " << argv[0] << " data_from_MB data_to_MB stride_from_KB stride_to_KB total_iterations=5 Device_No=0 min_instead_avg=0" << endl;
         return 0;
     }
 
@@ -125,10 +126,18 @@ int main(int argc, char **argv)
     unsigned int dataToKB = dataToMB * 1024;
     unsigned int tmpFrom = atoi(argv[3]);
     unsigned int tmpTo =atoi(argv[4]);
+    unsigned int iterations;
     Metric metric = METRIC_AVG;
+
+    //Specify larger number of total iterations to smooth out spikes
     if (argc > 5)
-        devNo =atoi(argv[5]);
-    if (argc > 6 && strcmp(argv[6],"1")==0)
+	iterations=atoi(argv[5]);
+    else
+	iterations=5;
+
+    if (argc > 6)
+        devNo =atoi(argv[6]);
+    if (argc > 7 && strcmp(argv[7],"1")==0)
         metric = METRIC_MIN;
 
     // ------------- round inputs to power of twos ------------
