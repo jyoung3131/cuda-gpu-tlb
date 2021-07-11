@@ -62,6 +62,8 @@ static __global__ void TLBtester(unsigned int * data, unsigned int iterations)
 
 
     for (unsigned int i = 0; i < iterations; i++){
+	//Thread fence is required on AMD GPUs - tested with O1 and O3 compilation and did not see any significant reordering
+	//Running without threadfence leads to report of static values regardless of the optimization level
 	__threadfence();
         start = clock64();
         pos = data[pos];

@@ -1,3 +1,5 @@
+#Can use this to test different optimization levels but we did not see a significant difference
+#set(CMAKE_CXX_FLAGS_RELEASE "-O1")
 
 set(TARGET_LIST tlb_benchmark tlb_sharing)
 foreach(TARGET ${TARGET_LIST})
